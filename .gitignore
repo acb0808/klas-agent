@@ -1,0 +1,5 @@
+.env
+.klas-agent/
+# 이 저장소에서 쓰려고 install로 만든 로컬 복사본 (원본은 skills/klas)
+.agents/
+.claude/skills/

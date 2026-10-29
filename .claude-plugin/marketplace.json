@@ -1,0 +1,21 @@
+{
+  "name": "klas-agent",
+  "owner": {
+    "name": "acb0808"
+  },
+  "metadata": {
+    "description": "광운대학교 KLAS 읽기 전용 조회 스킬",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "klas",
+      "description": "광운대학교 KLAS 읽기 전용 조회: 과목·과제·영상 강의·출석·성적·졸업요건·강의자료·학사일정, 시험 범위 기억, 학교 홈페이지 출처 안내",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/klas"
+      ]
+    }
+  ]
+}
