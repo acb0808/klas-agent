@@ -60,7 +60,7 @@ Claude Code · Codex · opencode · Antigravity에게 **"이번 주 뭐부터 �
 
 ## 빠른 시작
 
-1. **설치** (Node.js 20 이상 필요)
+1. **설치** (Node.js 22.20 이상 필요. 설치한 스킬 실행만은 20 이상)
    ```bash
    npx skills add acb0808/klas-agent -g
    ```
