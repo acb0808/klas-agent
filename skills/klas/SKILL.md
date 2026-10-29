@@ -14,7 +14,7 @@ metadata:
 2. **비밀번호를 묻거나, `.env`를 열거나, 출력하지 않는다.** 로그인은 스크립트가 `~/.klas-agent/.env`(`id`, `pw`) 등에서 알아서 읽는다.
    - **로그인 정보가 없으면(`NO_CREDENTIALS`) 하던 일을 멈추고 답을 "로그인 해주세요!"로 시작한다.** 이어서 `message`의 안내와 `setup` 필드의 명령을 코드 블록으로 그대로 준다. 사용자가 로그인 설정 방법을 물을 때도 같은 명령(`node "<이 SKILL.md가 있는 폴더의 절대 경로>/scripts/klas.mjs" setup`)을 준다.
    - `setup`은 **사용자가 자기 터미널에서 직접** 실행한다(학번·비밀번호를 입력받아 로그인을 확인하고 저장). 에이전트는 실행하지 않는다. 에이전트 셸에서는 `NEED_TERMINAL`로 거부된다. 사용자가 다 했다고 하면 원래 요청을 다시 실행한다.
-3. 로그인 오류(`LOGIN_FAILED`, `LOGIN_BLOCKED`, `CAPTCHA_REQUIRED`, `TWO_FACTOR_REQUIRED`, `PASSWORD_CHANGE_REQUIRED`, `NO_CREDENTIALS`)가 나오면 **다시 실행하지 말고** `message`를 사용자에게 그대로 전한다. 비밀번호 5회 실패 시 계정이 잠긴다.
+3. 로그인 오류(`LOGIN_FAILED`, `LOGIN_BLOCKED`, `CAPTCHA_REQUIRED`, `TWO_FACTOR_REQUIRED`, `PASSWORD_CHANGE_REQUIRED`)가 나오면 **다시 실행하지 말고** `message`를 사용자에게 그대로 전한다. 비밀번호 5회 실패 시 계정이 잠긴다.
 4. `login-failed.json`, `login.lock`, `session.json`을 지우거나 고치지 않고, `.env`를 만들거나 고치지 않는다. 이 파일들은 계정 잠금을 막는 장치이며 사용자만 다룬다.
 5. `NETWORK`·`STORAGE_DENIED` 오류는 샌드박스가 막은 것이다. 메시지를 전하고 사용자에게 권한 허용을 요청한다.
 6. 성적·학적 같은 개인정보는 사용자가 물은 범위만 보여준다.
