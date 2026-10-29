@@ -1,11 +1,12 @@
 // node --test 로 실행. 네트워크·로그인 없이 안전장치와 파서만 검사한다.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assertAllowed, compact, encryptLoginToken, isExpiredJson, matchCourses, parseArgs, parseKst, fmtKst, safeName, parseKwNoticeList, parseKwNotice, sourceRepoRoot } from '../skills/klas/scripts/klas.mjs';
+import { assertAllowed, compact, encryptLoginToken, isExpiredJson, matchCourses, parseArgs, parseKst, fmtKst, safeName, parseKwNoticeList, parseKwNotice, sourceRepoRoot, readEnvFile, envLine } from '../skills/klas/scripts/klas.mjs';
 
 test('자격증명: 남의 프로젝트에 설치되면 그 .env의 id/pw를 쓰지 않는다', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
@@ -127,4 +128,25 @@ test('로그인 토큰: PKCS#1 v1.5로 암호화되어 개인키로 복호화된
   const token = encryptLoginToken(b64, '{"loginId":"a"}');
   const plain = crypto.privateDecrypt({ key: privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(token, 'base64'));
   assert.equal(plain.toString(), '{"loginId":"a"}');
+});
+
+test('setup이 쓴 .env는 어떤 비밀번호든 그대로 읽힌다', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
+  try {
+    for (const pw of ['plain', ' 앞뒤 공백 ', '"quoted"', "'single'", 'a=b#c', 'a"b\'c', '한글비번!@#$%']) {
+      const file = path.join(tmp, '.env');
+      fs.writeFileSync(file, `${envLine('id', '2026000000')}\n${envLine('pw', pw)}\n`);
+      assert.deepEqual(readEnvFile(file), { id: '2026000000', pw });
+    }
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('setup은 터미널이 아니면(에이전트 셸) 입력을 받지 않고 거부한다', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
+  try {
+    const script = path.join(import.meta.dirname, '..', 'skills', 'klas', 'scripts', 'klas.mjs');
+    const r = spawnSync(process.execPath, [script, 'setup'], { input: '2026000000\nsecret\n', env: { ...process.env, KLAS_HOME: tmp }, encoding: 'utf8' });
+    assert.equal(JSON.parse(r.stdout).error, 'NEED_TERMINAL');
+    assert.equal(fs.existsSync(path.join(tmp, '.env')), false);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });

@@ -81,13 +81,15 @@ export function assertAllowed(method, url) {
 }
 
 // ---------- 설정 · 자격증명 ----------
-function readEnvFile(file) {
+export function readEnvFile(file) {
   try {
     return Object.fromEntries(fs.readFileSync(file, 'utf8').replace(/^﻿/, '').split(/\r?\n/)
       .map((l) => l.match(/^\s*([\w.-]+)\s*=\s*(.*?)\s*$/)).filter(Boolean)
       .map(([, k, v]) => [k, v.replace(/^(['"])(.*)\1$/, '$2')]));
   } catch { return {}; }
 }
+// readEnvFile은 값 앞뒤 공백을 자르고 바깥 따옴표 한 쌍만 벗기므로, 따옴표로 감싸 쓰면 어떤 비밀번호든 그대로 읽힌다
+export const envLine = (k, v) => `${k}="${v}"`;
 // 일반 키(id, pw)는 KLAS_HOME의 .env와 이 스킬의 원본 저장소 루트 .env에서만 읽는다.
 // npx skills 등으로 남의 프로젝트(<project>/.agents/skills/klas)에 설치되면 그 프로젝트 .env의 id/pw를 KLAS로 보내지 않는다.
 export function sourceRepoRoot(dir) {
@@ -178,15 +180,19 @@ export function encryptLoginToken(publicKey, payload) {
   return crypto.publicEncrypt({ key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(payload)).toString('base64');
 }
 
-async function doLogin() {
-  const { id, pw } = credentials();
-  if (!id || !pw) fail('NO_CREDENTIALS', `사용자에게 전달: 로그인 정보가 없습니다. ${path.join(home(), '.env')}에 id=학번, pw=비밀번호를 넣어주세요.`);
+const setupCommand = () => `node "${fileURLToPath(import.meta.url)}" setup`;
+
+async function doLogin({ id, pw } = credentials()) {
+  if (!id || !pw) {
+    fail('NO_CREDENTIALS', `로그인 해주세요! 터미널(PowerShell, macOS 터미널 등)에서 아래 setup 명령을 실행하고 학번과 비밀번호를 입력하면 됩니다. `
+      + `비밀번호는 화면에 보이지 않고 이 컴퓨터(${path.join(home(), '.env')})에만 저장됩니다.`, { setup: setupCommand() });
+  }
   const credHash = crypto.createHash('sha256').update(`${id}\0${pw}`).digest('hex');
   const failFile = path.join(home(), 'login-failed.json');
   const prev = readJson(failFile);
   if (prev?.credHash === credHash) {
     fail('LOGIN_BLOCKED', `사용자에게 전달: 이전 로그인이 실패했습니다(${prev.reason}). 계정 잠금(5회)을 막기 위해 같은 비밀번호로는 다시 시도하지 않습니다. `
-      + `사용자가 직접 .env의 비밀번호를 고치거나, KLAS 웹에서 로그인되는지 확인한 뒤 ${failFile} 파일을 지워야 합니다. 에이전트는 이 파일을 지우지 않습니다.`);
+      + `사용자가 직접 터미널에서 ${setupCommand()} 로 비밀번호를 다시 입력하거나, KLAS 웹에서 로그인되는지 확인한 뒤 ${failFile} 파일을 지워야 합니다. 에이전트는 이 파일을 지우지 않습니다.`);
   }
   jar = {};
   const form = await http('GET', `${BASE}/usr/cmn/login/LoginForm.do`);
@@ -780,6 +786,25 @@ const commands = {
     return items.map((i) => ({ ...i, due: fmtKst(i.due), hoursLeft: Math.floor((i.due - now) / 3600_000) }));
   },
 
+  // 사용자가 자기 터미널에서 직접 실행한다. 에이전트 셸은 TTY가 아니라서 거부되므로 에이전트가 비밀번호를 넘겨받을 길이 없다
+  async setup() {
+    if (!process.stdin.isTTY) {
+      fail('NEED_TERMINAL', `사용자에게 전달: 이 명령은 사용자가 직접 터미널(PowerShell, macOS 터미널 등)에서 실행해야 합니다: ${setupCommand()}`);
+    }
+    const file = path.join(home(), '.env');
+    console.log(`KLAS 로그인 설정. 입력한 정보는 로그인 확인에만 쓰이고 이 컴퓨터의 ${file}에만 저장됩니다.`);
+    const id = (await ask('학번: ')).trim();
+    const pw = await ask('비밀번호 (입력해도 화면에 보이지 않음): ', true);
+    if (!id || !pw) fail('CANCELLED', '학번과 비밀번호를 모두 입력해야 합니다. 저장하지 않았습니다.');
+    console.log('KLAS 로그인 확인 중...');
+    await doLogin({ id, pw }); // 실패하면 저장하지 않는다
+    fs.writeFileSync(file, `${envLine('id', id)}\n${envLine('pw', pw)}\n`, { mode: 0o600 });
+    console.log(`로그인 성공. ${file}에 저장했습니다.`);
+    const used = credentials();
+    if (used.id !== id || used.pw !== pw) console.log('주의: 환경변수 KLAS_ID/KLAS_PW나 이 폴더의 .env에 다른 로그인 정보가 있어 그쪽이 먼저 쓰입니다.');
+    console.log('이제 에이전트에게 "KLAS에서 이번 주 할 일 알려줘"라고 말해 보세요.');
+  },
+
   install() {
     const src = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
     const h = os.homedir();
@@ -802,6 +827,33 @@ const commands = {
     return { installed: done };
   },
 };
+
+// 터미널에서 한 줄 읽는다. hidden이면 입력한 글자를 화면에 찍지 않는다(비밀번호)
+function ask(question, hidden = false) {
+  const { stdin, stdout } = process;
+  stdout.write(question);
+  return new Promise((resolve, reject) => {
+    let buf = '';
+    const finish = (fn, v) => { stdin.off('data', onData); stdin.setRawMode(false); stdin.pause(); stdout.write('\n'); fn(v); };
+    const onData = (chunk) => {
+      for (const ch of chunk) {
+        if (ch === '\r' || ch === '\n') return finish(resolve, buf);
+        if (ch === '\u0003') return finish(reject, new KlasError('CANCELLED', '취소했습니다. 저장하지 않았습니다.'));
+        if (ch === '\u007f' || ch === '\b') { // 백스페이스 (macOS·Linux는 DEL, Windows는 BS)
+          if (buf && !hidden) stdout.write('\b \b');
+          buf = [...buf].slice(0, -1).join('');
+        } else if (ch >= ' ') {
+          buf += ch;
+          if (!hidden) stdout.write(ch);
+        }
+      }
+    };
+    stdin.setRawMode(true);
+    stdin.setEncoding('utf8');
+    stdin.on('data', onData);
+    stdin.resume();
+  });
+}
 
 // ---------- 진입점 ----------
 const VALUE_FLAGS = new Set(['term', 'page', 'prof', 'category', 'dept']);
@@ -827,7 +879,8 @@ async function main() {
     return;
   }
   try {
-    console.log(JSON.stringify(compact(await commands[cmd](args)), null, 1));
+    const out = await commands[cmd](args);
+    if (out !== undefined) console.log(JSON.stringify(compact(out), null, 1)); // setup은 사람에게 직접 출력한다
   } catch (e) {
     const known = e instanceof KlasError;
     const sys = e?.cause?.code ?? e?.code;
