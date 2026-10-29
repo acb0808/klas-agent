@@ -204,3 +204,7 @@ Claude 마켓플레이스 파일 검사:
 ```bash
 claude plugin validate .
 ```
+
+## 라이선스
+
+[MIT](LICENSE)
