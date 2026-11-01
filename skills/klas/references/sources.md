@@ -1,6 +1,6 @@
 # KLAS 밖 정보: 어디를 보면 되나
 
-KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 정리한 지도다. 확인일 **2026-10-28**. 학교가 페이지를 바꿀 수 있으니 열리지 않으면 사이트맵(`https://www.kw.ac.kr/ko/info/sitemap.jsp`)에서 메뉴 이름으로 다시 찾는다.
+KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 정리한 지도다. 값은 적지 않고 위치만 적는다. 확인일 **2026-11-02**(다른 도메인 표는 2026-10-28). 졸업요건은 `graduation.md`, 학과 내규는 `departments.md`. 학교가 페이지를 바꿀 수 있으니 열리지 않으면 사이트맵(`https://www.kw.ac.kr/ko/info/sitemap.jsp`)에서 메뉴 이름으로 다시 찾는다.
 
 ## 쓰는 법
 
@@ -19,9 +19,9 @@ KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 �
 | 질문 | KLAS 먼저 | 학교 페이지 | 연도 키·주의 |
 |---|---|---|---|
 | ① 이번 주 할 일 | `todo`, `calendar`, 기억 | `academic-calendar`(스크립트) | — |
-| ② 수강신청 조합 | `graduation`, `grades`, **`syllabus-search [과목명] --term <다음 학기> --dept <학과> --time`**(과목명 없이 `--dept`만 주면 학과 개설 과목 전체. 분반·이수구분·학점·요일·교시), `syllabus`(선수과목), 수강신청 뒤 `engineering`(공학계열 선수과목 승인) | `bachelor_info02.jsp` 필수과목표 / `bachelor_info03.jsp` 교시별 시각 / 수강신청 자료집은 `kw-notices 수강신청` / 보조: `www/ko/life/bachelor_info13.jsp` 학기별 전체 강의시간표 파일 | 다음 학기 검색 결과가 비면 강의계획서 공개 전일 수 있다. 필수과목: 아래 ④ 참고 |
+| ② 수강신청 조합 | `graduation`, `grades`, **`syllabus-search [과목명] --term <다음 학기> --dept <학과> --time`**(과목명 없이 `--dept`만 주면 학과 개설 과목 전체. 분반·이수구분·학점·요일·교시), `syllabus`(선수과목), 수강신청 뒤 `engineering`(공학계열 선수과목 승인) | `bachelor_info02.jsp` 필수과목표 / `bachelor_info03.jsp` 교시별 시각 / 수강신청 자료집은 `kw-notices 수강신청자료집` / 보조: `www/ko/life/bachelor_info13.jsp` 학기별 전체 강의시간표 파일 | 다음 학기 검색 결과가 비면 강의계획서 공개 전일 수 있다. 필수과목: 아래 ④ 참고 |
 | ③ 수강신청 실패 시 대안 | ②와 같음 | ② + `bachelor_info07.jsp` 수료·졸업요건 + 학과 교육과정(학과 페이지 '교육과정' 탭) | 대체 과목 인정은 학과 사무실 판단 |
-| ④ 졸업요건 점검 (학번별 참고 위치는 `graduation.md`) | `graduation`, `graduation --rules`(졸업기준표 PDF), 공학인증 학생은 `engineering` | `bachelor_info12.jsp` 입학연도별 졸업학점·교양 이수체계 / `bachelor_info07.jsp` 수료·졸업요건 / `bachelor_info02.jsp` 학과별 **필수과목표**(엑셀) / `bachelor_info01.jsp` 학과별 교과과정표(엑셀)·이수구분 코드 / `bachelor_info11.jsp` 심화·복수·부전공, 연계·마이크로·학생설계전공 | 졸업학점·교양: **입학연도**(`profile`). 필수과목표: 페이지 안내대로 **학년별로 실제 재학한 연도·학기** 행을 본다(`semesters`). 지금 링크된 파일은 2026년판뿐이며 과거 연도가 들어 있는지 미확인. KLAS PDF와 페이지가 다르면 둘 다 제시 |
+| ④ 졸업요건 점검 (학번별 참고 위치는 `graduation.md`) | `graduation`, `graduation --rules`(졸업기준표 PDF), 공학인증 학생은 `engineering` | `bachelor_info12.jsp` 입학연도별 졸업학점·교양 이수체계 / `bachelor_info07.jsp` 수료·졸업요건 / `bachelor_info02.jsp` 학과별 **필수과목표**(엑셀) / `bachelor_info01.jsp` 학과별 교과과정표(엑셀)·이수구분 코드 / `bachelor_info11.jsp` 심화·복수·부전공, 연계·마이크로·학생설계전공 / 학과 내규는 `departments.md` | 졸업학점·교양: **입학연도**(`profile`). 필수과목표: 페이지 안내대로 **학년별로 실제 재학한 연도·학기** 행을 본다(`semesters`). 파일 하나에 그 학과의 지난 연도까지 다 들어 있다(읽는 법 `graduation.md` §6). KLAS PDF와 페이지가 다르면 둘 다 제시 |
 | ⑤ 졸업까지 학기별 계획 | ④ + `semesters` | ④ + 학과 페이지 '전공로드맵' 탭 + `academic-calendar` | ④와 같음 |
 | ⑥ 학기 전망 | `syllabus`, `calendar`, `academic-calendar` | — | — |
 | ⑦ 수강 취소·변경 | `graduation`, `grades`, `scholarships` | 수강 정정·철회 일정은 `kw-notices 수강` + `academic-calendar` / 장학 유지 조건은 ⑬(교내 장학은 직전학기 취득학점·평점 조건) / 수료 기준은 `bachelor_info07.jsp` / 학기 최소 학점은 학칙(`rule.kw.ac.kr`)이나 수강 공지 | 장학 기준 표에 적용 학년도가 적혀 있다(예: "2025학년도 기준"). 최신 공지가 우선 |
@@ -29,13 +29,68 @@ KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 �
 | ⑨ 시험 준비 | 기억, `sync`, `my/` | — | — |
 | ⑩ 과제 점검 | `assignment`, `download` | — | — |
 | ⑪ 성적 계산 | `syllabus` 평가 비율, 기억 | `bachelor_info05.jsp` 성적평가 기준(등급·평점·백분율 환산, **상대/절대평가 기준, 비상대 평가과목**) | 강의계획서 `evaluationType`은 상대평가 여부가 아니다. 이 페이지로 판단하고, 과목별 컷은 여전히 알 수 없다고 밝힌다 |
-| ⑫ 맞춤 공지 | `notices`(과목 공지), `kw-notices`/`kw-notice`(학교 대표 공지) | 학과 홈페이지 공지(학과 소개 페이지의 '홈페이지' 링크) | 학과·단과대·센터 공지는 `kw-notices`에 **없다**. 웹 도구로 직접 본다 |
+| ⑫ 맞춤 공지 | `notices`(과목 공지), `kw-notices`/`kw-notice`(학교 대표 공지) | 학과 홈페이지 공지(`departments.md`, 없으면 학과 소개 페이지의 '홈페이지' 링크) | 학과·단과대·센터 공지는 `kw-notices`에 **없다**. 웹 도구로 직접 본다 |
 | ⑬ 장학금·지원 | `scholarships`, `grades`, `profile` | `kw-notices --category 장학` / `www/ko/life/summary.jsp` 장학 종류·중복지원 규칙 / `scholarship01.jsp` 교내 장학 선발 기준 / `scholarship02.jsp` 교외 / `scholarship03.jsp` 장학재단 예우 / 학과 수석장학 기준은 학과 내규(학과 홈페이지) / 상담·인권·장애학생 지원은 아래 표의 `/ko/department/admin31·32·33.jsp` | 교내 장학 표는 페이지에 "2025학년도 기준"이라 적혀 있다. 신청 조건은 해당 학기 공지가 우선 |
 | ⑭ 학사 행정(휴학·복학 등) | `profile`(학적), `academic-calendar` | `kw-notices --category 학사 <키워드>` / `bachelor_info08.jsp` 학적변동 구분 / `bachelor_info04.jsp` 전공배정 / `bachelor_rule.jsp` → `rule.kw.ac.kr` 학칙·규정 / `certificate01.jsp`~`07` 증명서 / `student_id.jsp` 학생증 / `military_consulting.jsp`, `military_guide01.jsp`(현역), `02`(예비역) 병무 / `faq.jsp`, `qna.jsp` | 신청은 안내만 |
 | ⑮ 팀플 일정 | `timetable`(내 것) | `bachelor_info03.jsp` 교시→시각 | 팀원 시간표는 사용자에게 받는다 |
 | ⑯ 공강 활용 | `timetable` | `www/ko/life/facility11.jsp` 식단 / `facility09.jsp` 편의시설 / `facility03.jsp` 도서관 / `facility07.jsp` 전산·멀티미디어 / `facility10.jsp` 장소 사용 / `facility12.jsp` Wi-Fi / `facility01.jsp` 보건소 / `https://kupis.kw.ac.kr` 중앙도서관 / `www/ko/tour/tour01.jsp` 캠퍼스 건물 | 운영시간이 페이지에 없으면 없다고 밝힌다 |
 | ⑰ 진로·교내 기회 | `syllabus-search`(관련 과목) | 아래 '다른 도메인'의 job·internship·kwjob·ipp·startup·국제교육원 / `www/ko/life/job.jsp` 취업정보 / `kw-notices --category 외부`, `학생` / 연구실 모집은 학과 홈페이지·'교수진' 탭 | — |
 | ⑱ 문의처·초안 | `advisor`(지도교수) | 각 안내 페이지 상단 '문의처' / `www/ko/status/orchart.jsp` 조직도 / `www/ko/tour/phone.jsp` 교내 전화번호 / `www/ko/tour/email_search.jsp` / `www/ko/tour/prosearch.jsp` 구성원 검색 / 부서 업무 `www/ko/department/view.jsp?hpage=intro_00NN` / 학과 사무실은 학과 소개 페이지의 '학과문의' | 초안만 쓴다. 보내지 않는다 |
+
+## 주제별 세부 위치
+
+페이지는 `/ko/life/` 아래다. 「」는 수강신청 자료집의 절 이름이다(아래 목록, 찾고 읽는 법은 `graduation.md` §6). 자료집이 페이지보다 최신일 수 있고, 다르면 둘 다 보여준다.
+
+| 주제 | 볼 곳 |
+|---|---|
+| 성적 등급·평점, 평점평균·백분율 환산, 성적 이의 | `bachelor_info05.jsp` |
+| 상대평가와 비상대평가 | `bachelor_info05.jsp`, 「비상대평가(절대평가) 기준」 |
+| P/NP 과목 | 「P/NP 평가 교과목 현황」 |
+| 출석 의무 | `bachelor_info05.jsp`, 강의계획서 안내문 |
+| 학사경고, 성적불량 제적 | `bachelor_info05.jsp`, `bachelor_info08.jsp` |
+| 재수강, 옛 학점삭제 경과조치 | `bachelor_info05.jsp`, 「재수강 제도」, 「수강신청 유의사항」 |
+| 취득학점 포기 | `bachelor_info05.jsp`, 「재수강 불가과목의 취득학점 포기 제도」, 신청은 KLAS 대학생활 → 학습결과 → 취득학점포기 신청(사용자가 직접) |
+| 수강신청 학점 범위, 조건부 최대학점 추가, 학점이월 | `bachelor_info13.jsp`, 「공통사항」의 같은 이름 항목 |
+| 수강 여석, 요일 배정과 일정, 수강 변경, 폐강 정정, 수강포기 | `bachelor_info13.jsp`, 「본교 교과목 수강신청」, `kw-notices 수강` |
+| 수강 제한인원, 폐강 기준 | 「수강인원 제한기준 및 폐강기준」 |
+| 교시→시각, 수강신청 방법 | `bachelor_info03.jsp`, 「수업시간 편성」, 「수강신청 방법」 |
+| 강의실 표기 | `bachelor_info13.jsp` |
+| 타학과 전공인정 | 규칙 `bachelor_info03.jsp`, 지정 목록 「타학과 전공인정 지정과목」(그 학기 것만) |
+| 타 대학 학점교류, 서울권역 e-러닝 | `bachelor_info03.jsp`, 「타 대학 학점교류 신청」, 「서울권역 e-러닝 교과목 수강신청」 |
+| 군복무 e-러닝 | 「군복무기간 중 취득 학점 인정」, `faq.jsp`에서 '군복무' 검색 |
+| 전공배정, 전공변경, 전과 | `bachelor_info04.jsp` |
+| 등록과 납입금, 장애학생 학점등록, 부분수강 납입금 | `bachelor_info08.jsp`, `bachelor_info07.jsp`, `faq.jsp`에서 '등록금' 검색 |
+| 휴학, 복학, 제적·자퇴, 재입학, 유급, 학적정정 | `bachelor_info08.jsp`, `kw-notices --category 학사 <키워드>`, `academic-calendar` |
+| 장학 종류, 중복 수혜, 심사 기준, 지급 제한, 신청 시기(단과대학장학금, 국가장학금, 화도·동해장학금, 교외 재단), 휴학과 장학 | `summary.jsp`, 해당 학기 공지 |
+| 교내 장학 / 교외 장학 / 장학재단 예우 | `scholarship01.jsp` / `scholarship02.jsp` / `scholarship03.jsp`. 표의 기준 연도를 함께 밝힌다 |
+| 학과 장학(수석 장학 등) | 학과 내규, `departments.md` |
+| 증명서 방법·수수료·종류·절차 | `certificate01.jsp`~`certificate07.jsp`, 문의는 페이지 상단 |
+| 학생증, 출석부·학생증 사진 변경 | `student_id.jsp`, `faq.jsp`에서 '사진' 검색 |
+| 국제학생증(ISIC) | `isic.jsp`, `https://www.isic.co.kr/kw/kwIndex.jsp` |
+| 병무 상담 / 현역 / 예비역·예비군 | `military_consulting.jsp` / `military_guide01.jsp` / `military_guide02.jsp`, `https://www.yebigun1.mil.kr` |
+| 등록금 반환, 환불 계좌, 고지서, 계정, 성적 조회, 예비군 질문 | `faq.jsp`에서 검색. 2000년대 글이 많으니 게시일을 밝히고 담당 부서 확인을 권한다 |
+| 학칙 원문 | `bachelor_rule.jsp` → `https://rule.kw.ac.kr` |
+
+원본끼리 다른 곳(졸업 관련은 `graduation.md` §4). 어느 쪽이라고 단정하지 말고 둘 다 보여준다.
+
+| 대상 | 볼 곳 |
+|---|---|
+| 비상대평가 목록 | `bachelor_info05.jsp`와 「비상대평가(절대평가) 기준」 |
+| 성적불량 제적의 통산 횟수 표기 | `bachelor_info05.jsp`와 `bachelor_info08.jsp` |
+| 유급 단위 | `bachelor_info08.jsp` 안의 두 설명, `bachelor_info05.jsp` |
+| 증명서 주민번호 미입력 졸업생 기준 연도 | `certificate01.jsp`·`certificate02.jsp`와 `certificate06.jsp` |
+| 학생증 발급 은행 지점 이름 | `student_id.jsp`와 `bachelor_info08.jsp` |
+| 예비군 전입 신고 기준일 | `military_guide02.jsp`와 `faq.jsp` |
+
+## 수강신청 자료집 절 목록
+
+2026-2판 목차 기준이다. 학기마다 쪽 번호가 달라지므로 절 이름으로 찾는다.
+
+- **학사일정 및 수업시간**: 학사일정, 수업시간 편성
+- **수강신청**: 공통사항(학기당 수강신청 학점 범위, 조건부 최대학점 추가 신청제도, 학점이월제도), 본교 교과목 수강신청(학과별, 1학년, 타학과 개설교과목·다전공·편입생, 한 과목도 신청하지 못한 재학생, 수강신청 변경 기간, 폐강과목 수강대상자 수강정정 기간, 수강포기 기간, 수강신청 유의사항), 타 대학 학점교류 신청, 서울권역 e-러닝 교과목 수강신청, 군복무기간 중 취득 학점 인정(군복무 e-러닝 제도), 재수강 제도, 재수강 불가과목의 취득학점 포기 제도, 수강인원 제한기준 및 폐강기준, 비상대평가(절대평가) 기준, P/NP 평가 교과목 현황, 수강신청 방법
+- **교육과정**: 교과목 편성표, 졸업이수학점, 교양필수 교과목 수강 안내, 자율전공학부 대상 교과목 운영 안내, 편입생이 이수해야 할 교과목 및 학점, 다전공(심화, 복수, 부, 연계, 마이크로, 학생설계융합전공 등) 이수제도, 연계전공 교육과정, 마이크로전공 교육과정, 공학계열 단과대학 공학교육인증제 시행 및 교과목 안내, 일반대학원 학·석사연계과정, 다학년 다학기 프로젝트(KW-VIP) 교과목 안내, 참빛설계학기, K-MOOC 교내 온라인강좌 수강 안내, 매치업 집중이수제 교내 강좌 수강 안내, 현장실습학기제
+- **특별교육과정**: ROTC 교과과정, 글로벌인재트랙인증제 및 교과목 안내
+- **부록**: 신입생 및 1학년 복학생 분반현황, 개설교과목 및 강의시간(교양과목 안내, 타학과 전공인정 지정과목, 교양 및 전공과목 개설 강의시간표)
 
 ## www.kw.ac.kr 안내 페이지 (로그인 없이 열림, 2026-10-28 확인)
 
@@ -44,18 +99,18 @@ KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 �
 | `/ko/life/bachelor_calendar.jsp` | 학사일정 (스크립트 `academic-calendar`가 `/KWBoard/list5_detail.jsp`로 읽음) |
 | `/ko/life/bachelor_info01.jsp` | 교과과정표(학과별 엑셀), 학정번호 11자리 구성, 이수구분 코드(교필·교선·전필·전선·복필·복선·부필·부선·연필·연선·MD·일선) |
 | `/ko/life/bachelor_info02.jsp` | 필수과목표(단과대·학과별 엑셀), 재학 연도·학기 맞춰 보는 법, 월반복학 예외 |
-| `/ko/life/bachelor_info03.jsp` | 수업안내: 주·야간 교시별 시각(주간 75분제), 수강신청 방법 |
-| `/ko/life/bachelor_info04.jsp` | 전공배정 신청 안내 |
-| `/ko/life/bachelor_info05.jsp` | 성적평가 기준, 평점평균 산출, 백분율 환산식, 상대/절대평가와 비상대 평가과목 |
-| `/ko/life/bachelor_info07.jsp` | 학년별 수료 기준(입학연도별 학점), 졸업요건 |
-| `/ko/life/bachelor_info08.jsp` | 학적변동 구분 |
-| `/ko/life/bachelor_info09.jsp` | 특별프로그램 안내 |
+| `/ko/life/bachelor_info03.jsp` | 수업안내: 주·야간 교시별 시각, 수강신청 방법, 타학과 전공인정, 타 대학 학점교류, 서울권역 e-러닝 |
+| `/ko/life/bachelor_info04.jsp` | 전공배정 신청 안내, 모집단위 내 전공변경, 전과 |
+| `/ko/life/bachelor_info05.jsp` | 성적평가 기준, 평점평균 산출, 백분율 환산식, 상대/절대평가와 비상대 평가과목, 출석 의무, 학사경고, 재수강, 취득학점 포기, 성적 이의 |
+| `/ko/life/bachelor_info07.jsp` | 학년별 수료 기준(입학연도별 학점), 졸업요건, 조기졸업, 졸업연기, 초과 등록금, 졸업논문·시험, 편입생 |
+| `/ko/life/bachelor_info08.jsp` | 학적변동 구분, 등록과 납입금, 휴학, 복학, 제적·자퇴, 재입학, 유급, 학적정정 |
+| `/ko/life/bachelor_info09.jsp` | 특별프로그램 안내였으나 2026-11-02 확인에 빈 페이지. 특별 과정은 `graduation.md` §2 |
 | `/ko/life/bachelor_info11.jsp` | 다전공: 심화·복수·부전공, 연계전공·마이크로전공 목록, 학생설계융합전공 양식 |
 | `/ko/life/bachelor_info12.jsp` | 입학연도별 졸업학점, 교양 이수체계(필수교양·균형교양 영역) |
-| `/ko/life/bachelor_info13.jsp` | 학정번호·이수구분 설명, 학기별 강의시간표 파일 |
+| `/ko/life/bachelor_info13.jsp` | 학정번호·이수구분 설명, 학기별 강의시간표 파일, 수강신청 학점 범위, 조건부 추가, 학점이월, 여석, 요일 배정, 수강포기, 강의실 표기, 자료집 안내 |
 | `/ko/life/bachelor_rule.jsp` | 학칙 및 학사관련규정 안내 → 본문은 `rule.kw.ac.kr` |
 | `/ko/life/summary.jsp`, `scholarship01~03.jsp` | 장학 종류·중복지원 규칙, 교내·교외 장학, 장학재단 예우 |
-| `/ko/life/certificate01~07.jsp`, `student_id.jsp` | 증명서 발급 방법, 학생증 |
+| `/ko/life/certificate01~07.jsp`, `student_id.jsp`, `isic.jsp` | 증명서 발급 방법, 수수료, 종류, 절차(`certificate05.jsp`는 확인일에 빈 페이지), 학생증, 국제학생증 |
 | `/ko/life/military_consulting.jsp`, `military_guide01~02.jsp` | 병무 상담, 현역·예비역 업무 |
 | `/ko/life/activity01.jsp`, `activity02.jsp`, `activity07.jsp` | 총학생회, 총동아리연합회, ROTC |
 | `/ko/life/facility01·03·04·07·09·10·11·12.jsp` | 보건소, 도서관, 대강당, 전산·멀티미디어, 편의시설, 장소 사용, 식단, Wi-Fi |
@@ -92,7 +147,13 @@ KLAS(스크립트)에 없는 정보를 학교 어느 페이지에서 찾을지 �
 | `teacher.kw.ac.kr` | 교직과정 (2017학번까지). 확인일에 **접속 실패** |
 | `grad.kw.ac.kr`, `iphak.kw.ac.kr` | 대학원, 입학 |
 | `news.kw.ac.kr` | 광운소식·뉴스레터 |
-| 학과 홈페이지 | 학과마다 다름. 학과 소개 페이지의 '홈페이지' 링크 |
+| `share.kw.ac.kr`, `huss.kw.ac.kr` | 지능형로봇학과, 글로벌지속가능융합학과 사업단 |
+| `ei.kw.ac.kr/curricular/overview.php`, `m.site.naver.com/1iZZD` | `bachelor_info11.jsp`의 일부 연계전공 안내가 가리키는 사이트 |
+| `dream.kw.ac.kr` | 드림캐처 이수체계 도식 |
+| `www.abeek.or.kr` | 한국공학교육인증원 (학교 밖) |
+| `www.isic.co.kr/kw/kwIndex.jsp` | 국제학생증 발급 (학교 밖) |
+| `www.yebigun1.mil.kr` | 예비군 교육훈련 (학교 밖) |
+| 학과 홈페이지 | `departments.md`. 없으면 학과 소개 페이지의 '홈페이지' 링크 |
 | `academyinfo.go.kr` | 대학정보공시 (학교 밖, 공식) |
 
 ## 문의처 (각 페이지 상단 표기, 2026-10-28)

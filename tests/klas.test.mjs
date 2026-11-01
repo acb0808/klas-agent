@@ -209,3 +209,30 @@ test('setup은 페이지 서버를 하나만 띄우고, 로그인될 때까지 �
     fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 });
+
+test('참조 파일: 위치만 적고 기준 값은 넣지 않는다', () => {
+  const skill = path.join(import.meta.dirname, '..', 'skills', 'klas');
+  const refs = path.join(skill, 'references');
+  const read = (name) => fs.readFileSync(path.join(refs, name), 'utf8');
+  const entries = fs.readdirSync(refs, { withFileTypes: true });
+  assert.deepEqual(entries.filter((e) => e.isDirectory()).map((e) => e.name), [], '학교 자료 표를 폴더째 넣지 않는다');
+  assert.deepEqual(entries.map((e) => e.name).sort(), ['departments.md', 'graduation.md', 'sources.md']);
+  for (const e of entries) {
+    assert.doesNotMatch(read(e.name), /\d+\s*학점/, `${e.name}에 학점 값이 있다`);
+  }
+  // 안내 문서가 가리키는 파일이 모두 있다
+  const docs = [fs.readFileSync(path.join(skill, 'SKILL.md'), 'utf8'), ...entries.map((e) => read(e.name))];
+  for (const text of docs) {
+    for (const [, name] of text.matchAll(/`(?:references\/)?([^`<>\s/]+\.md)`/g)) {
+      if (name === 'SKILL.md' || name === 'MEMORY.md') continue;
+      assert.ok(fs.existsSync(path.join(refs, name)), `가리키는 ${name}이 없다`);
+    }
+  }
+  // 내규를 못 찾은 학과도 절이 있어야 '없다'로 오해하지 않는다
+  const sections = read('departments.md').split(/^### /m).slice(1);
+  assert.ok(sections.length >= 37, `학과 절이 너무 적다: ${sections.length}`);
+  for (const s of sections) {
+    assert.match(s, /^- 볼 곳/m, `${s.split(/\r?\n/)[0]}에 볼 곳이 없다`);
+    assert.match(s, /^- 상태: (확인됨|일부만 확인|못 찾음)\s*$/m, `${s.split(/\r?\n/)[0]}에 상태가 없다`);
+  }
+});

@@ -161,7 +161,8 @@ skills/klas/                     에이전트에 설치되는 스킬
   SKILL.md                       에이전트 지침
   scripts/klas.mjs               조회 스크립트 (Node 20+, 의존성 없음)
   references/sources.md          KLAS 밖 정보 출처 지도
-  references/graduation.md       학번별 졸업요건 참고 위치
+  references/graduation.md       졸업요건 참고 위치와 점검 항목, 원본 읽는 법
+  references/departments.md      학과별 내규 위치
 .claude-plugin/marketplace.json  Claude Code 플러그인 마켓플레이스
 tests/klas.test.mjs              안전장치·파서 테스트
 docs/klas-research.md            KLAS 조사 기록 (엔드포인트, 금지 목록)
