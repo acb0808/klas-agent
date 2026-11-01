@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // 광운대 KLAS 읽기 전용 CLI. 의존성 없음, Node 20+.
 // 모든 요청은 http()의 화이트리스트를 통과해야 하며, 쓰기 엔드포인트는 목록에 없다.
+import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -151,8 +153,29 @@ const isExpiredRes = (res) => res.status >= 300 && res.status < 400 && /login/i.
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let loggedInThisRun = false;
 
-// stale: 만료로 거절된 요청에 실어 보낸 SESSION. 파일의 SESSION이 이것과 다르면 다른 프로세스가 새로 로그인한 것이다
+// 사용자가 학번·비밀번호를 입력해야 풀리는 오류
+const needsLoginPage = (e) => ['NO_CREDENTIALS', 'LOGIN_FAILED', 'LOGIN_BLOCKED'].includes(e.code);
+
+// 로그인 페이지를 띄우고 사용자가 끝낼 때까지 명령을 끝내지 않는다.
+// Antigravity처럼 명령이 끝나면 자식 프로세스까지 끄는 도구가 있어, 명령이 살아 있어야 페이지도 살아 있다
 async function login(stale) {
+  try {
+    await loginOnce(stale);
+  } catch (e) {
+    if (!needsLoginPage(e)) throw e;
+    if (!e.loginPage) {
+      e.message += ` ${setupFallback()}`;
+      throw e;
+    }
+    console.error(`${e.message} ${loginPageGuide(e.loginPage)}`);
+    if (await waitForLogin(stale)) return;
+    e.message += ` ${LOGIN_WAIT_TIMEOUT}`;
+    throw e;
+  }
+}
+
+// stale: 만료로 거절된 요청에 실어 보낸 SESSION. 파일의 SESSION이 이것과 다르면 다른 프로세스가 새로 로그인한 것이다
+async function loginOnce(stale) {
   const lock = path.join(home(), 'login.lock');
   fs.mkdirSync(home(), { recursive: true });
   const started = Date.now();
@@ -171,6 +194,9 @@ async function login(stale) {
     loadSession();
     if (jar.SESSION && jar.SESSION !== stale) return; // 기다리는 동안 다른 프로세스가 로그인함
     await doLogin();
+  } catch (e) {
+    if (needsLoginPage(e)) e.loginPage = await loginPageUrl(); // 병렬 명령이 페이지를 하나만 띄우도록 잠금 안에서 연다
+    throw e;
   } finally { fs.rmSync(lock, { force: true }); }
 }
 
@@ -180,19 +206,14 @@ export function encryptLoginToken(publicKey, payload) {
   return crypto.publicEncrypt({ key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(payload)).toString('base64');
 }
 
-const setupCommand = () => `node "${fileURLToPath(import.meta.url)}" setup`;
-
 async function doLogin({ id, pw } = credentials()) {
-  if (!id || !pw) {
-    fail('NO_CREDENTIALS', `로그인 해주세요! 터미널(PowerShell, macOS 터미널 등)에서 아래 setup 명령을 실행하고 학번과 비밀번호를 입력하면 됩니다. `
-      + `비밀번호는 화면에 보이지 않고 이 컴퓨터(${path.join(home(), '.env')})에만 저장됩니다.`, { setup: setupCommand() });
-  }
+  if (!id || !pw) fail('NO_CREDENTIALS', '로그인 해주세요!');
   const credHash = crypto.createHash('sha256').update(`${id}\0${pw}`).digest('hex');
   const failFile = path.join(home(), 'login-failed.json');
   const prev = readJson(failFile);
   if (prev?.credHash === credHash) {
     fail('LOGIN_BLOCKED', `사용자에게 전달: 이전 로그인이 실패했습니다(${prev.reason}). 계정 잠금(5회)을 막기 위해 같은 비밀번호로는 다시 시도하지 않습니다. `
-      + `사용자가 직접 터미널에서 ${setupCommand()} 로 비밀번호를 다시 입력하거나, KLAS 웹에서 로그인되는지 확인한 뒤 ${failFile} 파일을 지워야 합니다. 에이전트는 이 파일을 지우지 않습니다.`);
+      + `비밀번호를 새로 입력하거나, 맞는 비밀번호라면 KLAS 웹에서 로그인되는지 확인한 뒤 ${failFile} 파일을 지워야 합니다. 에이전트는 이 파일을 지우지 않습니다.`);
   }
   jar = {};
   const form = await http('GET', `${BASE}/usr/cmn/login/LoginForm.do`);
@@ -210,7 +231,7 @@ async function doLogin({ id, pw } = credentials()) {
   if (!r || r.errorCount !== 0) {
     const reason = r?.fieldErrors?.[0]?.message || r?.responseText || `HTTP ${res.status}`;
     writeJson(failFile, { credHash, reason, at: new Date().toISOString() });
-    fail('LOGIN_FAILED', `KLAS 로그인 실패: ${reason}. 자동 재시도는 하지 않습니다.`);
+    fail('LOGIN_FAILED', `KLAS 로그인 실패: ${reason}. 자동 재시도는 하지 않습니다.`, { reason });
   }
   const d = r.response ?? {};
   if (d.certOpt === 'Y' || d.frstPwdAt === 'Y') fail('PASSWORD_CHANGE_REQUIRED', 'KLAS 웹에서 임시 비밀번호를 먼저 변경해야 합니다.');
@@ -219,6 +240,134 @@ async function doLogin({ id, pw } = credentials()) {
   if (!jar.SESSION) fail('NO_SESSION', '로그인 응답에 세션 쿠키가 없습니다.');
   loggedInThisRun = true;
   saveSession();
+}
+
+// ---------- 로그인 웹페이지 ----------
+// 비밀번호는 사용자가 브라우저에 직접 입력하므로 에이전트를 거치지 않는다
+const LOGIN_PAGE_TTL = 30 * 60_000;
+const SCRIPT = fileURLToPath(import.meta.url);
+const loginPageFile = () => path.join(home(), 'login-page.json');
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+function launch(cmd, args) {
+  try { spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', () => {}).unref(); } catch { /* 링크를 안내하므로 괜찮다 */ }
+}
+function openBrowser(url) {
+  if (process.platform === 'win32') launch('cmd', ['/c', 'start', '', url]);
+  else launch(process.platform === 'darwin' ? 'open' : 'xdg-open', [url]);
+}
+
+// 이미 떠 있는 페이지가 있으면 재사용한다
+async function loginPageUrl() {
+  const file = loginPageFile();
+  const cur = readJson(file);
+  let age = 0;
+  let alive = false;
+  try {
+    age = Date.now() - fs.statSync(file).mtimeMs;
+    alive = age < LOGIN_PAGE_TTL && process.kill(cur.pid, 0);
+  } catch { /* 없거나 꺼짐 */ }
+  if (alive) {
+    // 병렬 명령은 몇 초 안에 몰려오므로 탭을 또 열지 않는다. 그 뒤에 다시 실행했다면 사용자가 탭을 닫았을 수 있다
+    if (age > 15_000) openBrowser(cur.url);
+    return cur.url;
+  }
+  fs.rmSync(file, { force: true });
+  launch(process.execPath, [SCRIPT, 'login-page']);
+  for (let i = 0; i < 50; i++) {
+    await sleep(100);
+    const url = readJson(file)?.url;
+    if (url) return url;
+  }
+  return undefined;
+}
+
+const setupFallback = () => `로그인 페이지를 열지 못했습니다. 터미널에서 이 명령을 실행해 주세요: node "${SCRIPT}" setup`;
+const loginPageGuide = (url) => `브라우저에 열린 로그인 페이지에서 학번과 비밀번호를 입력해 주세요. 로그인하면 하던 일을 이어서 합니다. 페이지가 안 보이면 이 링크를 여세요: ${url}`;
+const LOGIN_WAIT_TIMEOUT = '아직 로그인이 끝나지 않았습니다. 사용자가 준비되면 같은 명령을 다시 실행하세요. 로그인 페이지가 다시 열립니다.';
+
+// 사용자가 페이지에서 로그인하면 페이지 서버가 session.json을 새로 저장한다.
+// 기본 100초: 흔한 에이전트 명령 제한 시간(2분)보다 먼저 끝나 에이전트가 안내할 기회를 남긴다
+async function waitForLogin(stale) {
+  const end = Date.now() + Number(opts.wait ?? 100) * 1000;
+  while (Date.now() < end) {
+    await sleep(500);
+    loadSession();
+    if (jar.SESSION && jar.SESSION !== stale) return true;
+  }
+  return false;
+}
+
+function loginErrorText(e) {
+  if (e.code === 'LOGIN_FAILED') return `로그인하지 못했습니다. 학번과 비밀번호를 확인하고 다시 입력해 주세요. 여러 번 틀리면 KLAS 계정이 잠길 수 있습니다. (KLAS 응답: ${e.extra?.reason})`;
+  if (e.code === 'LOGIN_BLOCKED') return `방금 실패한 것과 같은 비밀번호라서 계정이 잠기지 않도록 다시 시도하지 않았습니다. 비밀번호를 확인해 주세요. 맞는 비밀번호가 확실하면 ${path.join(home(), 'login-failed.json')} 파일을 지운 뒤 다시 눌러 주세요.`;
+  if (e instanceof KlasError) return e.message;
+  return `문제가 생겼습니다. 인터넷 연결을 확인하고 다시 눌러 주세요. (${e?.message ?? e})`;
+}
+
+// 컴퓨터를 잘 모르는 사용자가 불안해하지 않도록 다크 모드에서도 밝은 화면을 유지한다
+const LOGIN_PAGE_STYLE = `:root{color-scheme:light;--bg:#f3f6fb;--card:#fff;--text:#1d1d1f;--sub:#6e6e73;--line:#d2d2d7;--accent:#2563eb;--on:#fff;--err:#b3261e;--err-bg:#fdecea}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--bg);color:var(--text);font:16px/1.6 system-ui,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}
+main{width:100%;max-width:400px;padding:32px;background:var(--card);border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+h1{margin:0 0 8px;font-size:24px}
+p{margin:0}
+label{display:block;margin-top:16px;font-weight:600}
+input{display:block;width:100%;margin-top:6px;padding:12px;font:inherit;font-weight:400;color:inherit;background:transparent;border:1px solid var(--line);border-radius:10px}
+button{width:100%;margin-top:24px;padding:14px;font:inherit;font-weight:600;color:var(--on);background:var(--accent);border:0;border-radius:10px;cursor:pointer}
+button:disabled{opacity:.6}
+.err{margin-top:16px;padding:12px;color:var(--err);background:var(--err-bg);border-radius:10px}
+.note{margin-top:16px;font-size:13px;color:var(--sub)}`;
+const pageHtml = (body) => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>KLAS 로그인</title><style>${LOGIN_PAGE_STYLE}</style></head><body><main>${body}</main></body></html>`;
+const loginFormHtml = ({ id = '', error } = {}) => pageHtml(`<h1>KLAS 로그인</h1>
+<p>학번과 비밀번호를 한 번만 입력하면 에이전트가 KLAS 정보를 읽어 올 수 있어요.</p>
+${error ? `<p class="err" role="alert">${esc(error)}</p>` : ''}
+<form method="post" onsubmit="b.disabled=true;b.textContent='확인하는 중…'">
+<label>학번<input name="id" value="${esc(id)}" inputmode="numeric" autocomplete="username" required autofocus></label>
+<label>비밀번호<input name="pw" type="password" autocomplete="current-password" required></label>
+<button id="b">로그인</button>
+</form>
+<p class="note">비밀번호는 이 컴퓨터에만 저장되고 KLAS 로그인에만 쓰입니다. 과제 제출이나 수강신청 같은 변경은 하지 않고 조회만 합니다.</p>
+<p class="note">광운대학교 공식 사이트가 아니라, 내 컴퓨터에서 실행 중인 KLAS 에이전트 스킬 화면입니다.</p>`);
+const loginDoneHtml = (overridden) => pageHtml(`<h1>로그인 완료</h1>
+<p>이제 이 창을 닫고 에이전트로 돌아가세요. 하던 일을 이어서 합니다. 에이전트가 멈춰 있으면 "다 했어"라고 말해 주세요.</p>
+${overridden ? '<p class="err" role="alert">환경변수 KLAS_ID/KLAS_PW나 작업 폴더의 .env에 다른 로그인 정보가 있어 그쪽이 먼저 쓰입니다.</p>' : ''}`);
+
+function sendPage(res, status, html, onFinish) {
+  res.writeHead(status, {
+    'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer',
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'",
+  });
+  res.end(html, onFinish);
+}
+
+// 127.0.0.1에서만 열고, 주소의 임의 토큰을 모르면 열 수 없어 다른 웹사이트가 이 페이지로 제출할 수 없다
+export function loginPageServer(token, { tryLogin = doLogin, onDone = () => {} } = {}) {
+  let busy = false;
+  const handle = async (req, res) => {
+    if (req.url !== `/${token}`) return sendPage(res, 404, '');
+    if (req.method !== 'POST') return sendPage(res, 200, loginFormHtml());
+    let body = '';
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > 4096) return sendPage(res, 413, '');
+    }
+    const form = new URLSearchParams(body);
+    const id = (form.get('id') ?? '').trim();
+    const pw = form.get('pw') ?? '';
+    if (!id || !pw) return sendPage(res, 200, loginFormHtml({ id, error: '학번과 비밀번호를 모두 입력해 주세요.' }));
+    if (busy) return sendPage(res, 200, loginFormHtml({ id, error: '로그인을 확인하는 중입니다. 잠시 후 다시 눌러 주세요.' }));
+    busy = true;
+    try {
+      await tryLogin({ id, pw }); // 실패하면 저장하지 않는다
+      fs.writeFileSync(path.join(home(), '.env'), `${envLine('id', id)}\n${envLine('pw', pw)}\n`, { mode: 0o600 });
+      const used = credentials();
+      return sendPage(res, 200, loginDoneHtml(used.id !== id || used.pw !== pw), onDone);
+    } catch (e) {
+      return sendPage(res, 200, loginFormHtml({ id, error: loginErrorText(e) }));
+    } finally { busy = false; }
+  };
+  return createServer((req, res) => { handle(req, res).catch(() => res.destroy()); });
 }
 
 // 로그인이 필요한 요청. 만료되면 한 실행에서 최대 1번만 재로그인한다.
@@ -786,23 +935,26 @@ const commands = {
     return items.map((i) => ({ ...i, due: fmtKst(i.due), hoursLeft: Math.floor((i.due - now) / 3600_000) }));
   },
 
-  // 사용자가 자기 터미널에서 직접 실행한다. 에이전트 셸은 TTY가 아니라서 거부되므로 에이전트가 비밀번호를 넘겨받을 길이 없다
   async setup() {
-    if (!process.stdin.isTTY) {
-      fail('NEED_TERMINAL', `사용자에게 전달: 이 명령은 사용자가 직접 터미널(PowerShell, macOS 터미널 등)에서 실행해야 합니다: ${setupCommand()}`);
-    }
-    const file = path.join(home(), '.env');
-    console.log(`KLAS 로그인 설정. 입력한 정보는 로그인 확인에만 쓰이고 이 컴퓨터의 ${file}에만 저장됩니다.`);
-    const id = (await ask('학번: ')).trim();
-    const pw = await ask('비밀번호 (입력해도 화면에 보이지 않음): ', true);
-    if (!id || !pw) fail('CANCELLED', '학번과 비밀번호를 모두 입력해야 합니다. 저장하지 않았습니다.');
-    console.log('KLAS 로그인 확인 중...');
-    await doLogin({ id, pw }); // 실패하면 저장하지 않는다
-    fs.writeFileSync(file, `${envLine('id', id)}\n${envLine('pw', pw)}\n`, { mode: 0o600 });
-    console.log(`로그인 성공. ${file}에 저장했습니다.`);
-    const used = credentials();
-    if (used.id !== id || used.pw !== pw) console.log('주의: 환경변수 KLAS_ID/KLAS_PW나 이 폴더의 .env에 다른 로그인 정보가 있어 그쪽이 먼저 쓰입니다.');
-    console.log('이제 에이전트에게 "KLAS에서 이번 주 할 일 알려줘"라고 말해 보세요.');
+    loadSession();
+    const before = jar.SESSION;
+    const url = await loginPageUrl();
+    if (!url) fail('LOGIN_PAGE_FAILED', `${setupFallback()} 터미널에서도 안 되면 ${path.join(home(), '.env')} 파일에 id=학번, pw=비밀번호 두 줄을 직접 적어 주세요.`);
+    console.error(loginPageGuide(url));
+    if (!await waitForLogin(before)) fail('LOGIN_WAIT_TIMEOUT', LOGIN_WAIT_TIMEOUT);
+    console.log('로그인했습니다.');
+  },
+
+  // 로그인 페이지가 필요할 때 백그라운드로 뜨는 서버. 로그인에 성공하거나 30분이 지나면 꺼진다
+  async 'login-page'() {
+    const token = crypto.randomBytes(24).toString('hex');
+    const server = loginPageServer(token, { onDone: () => process.exit() });
+    await new Promise((r) => { server.listen(0, '127.0.0.1', r); });
+    const url = `http://127.0.0.1:${server.address().port}/${token}`;
+    writeJson(loginPageFile(), { pid: process.pid, url });
+    process.on('exit', () => fs.rmSync(loginPageFile(), { force: true }));
+    setTimeout(() => process.exit(), LOGIN_PAGE_TTL);
+    openBrowser(url);
   },
 
   install() {
@@ -828,35 +980,8 @@ const commands = {
   },
 };
 
-// 터미널에서 한 줄 읽는다. hidden이면 입력한 글자를 화면에 찍지 않는다(비밀번호)
-function ask(question, hidden = false) {
-  const { stdin, stdout } = process;
-  stdout.write(question);
-  return new Promise((resolve, reject) => {
-    let buf = '';
-    const finish = (fn, v) => { stdin.off('data', onData); stdin.setRawMode(false); stdin.pause(); stdout.write('\n'); fn(v); };
-    const onData = (chunk) => {
-      for (const ch of chunk) {
-        if (ch === '\r' || ch === '\n') return finish(resolve, buf);
-        if (ch === '\u0003') return finish(reject, new KlasError('CANCELLED', '취소했습니다. 저장하지 않았습니다.'));
-        if (ch === '\u007f' || ch === '\b') { // 백스페이스 (macOS·Linux는 DEL, Windows는 BS)
-          if (buf && !hidden) stdout.write('\b \b');
-          buf = [...buf].slice(0, -1).join('');
-        } else if (ch >= ' ') {
-          buf += ch;
-          if (!hidden) stdout.write(ch);
-        }
-      }
-    };
-    stdin.setRawMode(true);
-    stdin.setEncoding('utf8');
-    stdin.on('data', onData);
-    stdin.resume();
-  });
-}
-
 // ---------- 진입점 ----------
-const VALUE_FLAGS = new Set(['term', 'page', 'prof', 'category', 'dept']);
+const VALUE_FLAGS = new Set(['term', 'page', 'prof', 'category', 'dept', 'wait']);
 export function parseArgs(argv) {
   const pos = [];
   const o = {};
@@ -880,7 +1005,7 @@ async function main() {
   }
   try {
     const out = await commands[cmd](args);
-    if (out !== undefined) console.log(JSON.stringify(compact(out), null, 1)); // setup은 사람에게 직접 출력한다
+    if (out !== undefined) console.log(JSON.stringify(compact(out), null, 1)); // setup은 안내문을 직접 출력한다
   } catch (e) {
     const known = e instanceof KlasError;
     const sys = e?.cause?.code ?? e?.code;

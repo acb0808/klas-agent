@@ -1,12 +1,12 @@
 // node --test 로 실행. 네트워크·로그인 없이 안전장치와 파서만 검사한다.
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { assertAllowed, compact, encryptLoginToken, isExpiredJson, matchCourses, parseArgs, parseKst, fmtKst, safeName, parseKwNoticeList, parseKwNotice, sourceRepoRoot, readEnvFile, envLine } from '../skills/klas/scripts/klas.mjs';
+import { assertAllowed, compact, encryptLoginToken, isExpiredJson, matchCourses, parseArgs, parseKst, fmtKst, safeName, parseKwNoticeList, parseKwNotice, sourceRepoRoot, readEnvFile, envLine, loginPageServer } from '../skills/klas/scripts/klas.mjs';
 
 test('자격증명: 남의 프로젝트에 설치되면 그 .env의 id/pw를 쓰지 않는다', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
@@ -130,7 +130,7 @@ test('로그인 토큰: PKCS#1 v1.5로 암호화되어 개인키로 복호화된
   assert.equal(plain.toString(), '{"loginId":"a"}');
 });
 
-test('setup이 쓴 .env는 어떤 비밀번호든 그대로 읽힌다', () => {
+test('로그인 페이지가 쓴 .env는 어떤 비밀번호든 그대로 읽힌다', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
   try {
     for (const pw of ['plain', ' 앞뒤 공백 ', '"quoted"', "'single'", 'a=b#c', 'a"b\'c', '한글비번!@#$%']) {
@@ -141,12 +141,71 @@ test('setup이 쓴 .env는 어떤 비밀번호든 그대로 읽힌다', () => {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
-test('setup은 터미널이 아니면(에이전트 셸) 입력을 받지 않고 거부한다', () => {
+test('로그인 페이지: 토큰이 틀리면 거부하고, 로그인에 성공해야만 저장한다', async (t) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
+  const prevHome = process.env.KLAS_HOME;
+  process.env.KLAS_HOME = tmp;
+  let done = 0;
+  const tried = [];
+  const tryLogin = async ({ pw }) => {
+    tried.push(pw);
+    if (pw === 'wrong') throw Object.assign(new Error('x'), { code: 'LOGIN_FAILED', extra: { reason: '<b>틀림</b>' } });
+  };
+  const server = loginPageServer('tok', { tryLogin, onDone: () => { done++; } });
+  await new Promise((r) => { server.listen(0, '127.0.0.1', r); });
+  t.after(() => {
+    server.close();
+    if (prevHome === undefined) delete process.env.KLAS_HOME; else process.env.KLAS_HOME = prevHome;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (url, form) => fetch(url, { method: 'POST', body: new URLSearchParams(form) });
+  const env = path.join(tmp, '.env');
+
+  assert.equal((await fetch(`${base}/`)).status, 404);
+  assert.equal((await post(`${base}/nope`, { id: '2026000000', pw: 'x' })).status, 404);
+  assert.deepEqual(tried, []);
+  assert.match(await (await fetch(`${base}/tok`)).text(), /type="password"/);
+
+  assert.match(await (await post(`${base}/tok`, { id: ' ', pw: 'x' })).text(), /모두 입력/);
+  assert.deepEqual(tried, []);
+
+  const failed = await (await post(`${base}/tok`, { id: '"><x', pw: 'wrong' })).text();
+  assert.match(failed, /&#60;b&#62;틀림/); // KLAS 응답과 입력값은 HTML로 해석되지 않는다
+  assert.ok(!failed.includes('"><x'));
+  assert.equal(fs.existsSync(env), false);
+  assert.equal(done, 0);
+
+  const pw = ' a"b\'c&=+ 한글 ';
+  assert.match(await (await post(`${base}/tok`, { id: '2026000000', pw })).text(), /로그인 완료/);
+  assert.deepEqual(readEnvFile(env), { id: '2026000000', pw });
+  assert.equal(done, 1);
+});
+
+test('setup은 페이지 서버를 하나만 띄우고, 로그인될 때까지 기다린다', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'klas-'));
+  const script = path.join(import.meta.dirname, '..', 'skills', 'klas', 'scripts', 'klas.mjs');
+  // PATH를 비워 브라우저 여는 명령만 실패하게 한다. 테스트 중에 브라우저가 뜨지 않는다
+  const env = { ...process.env, KLAS_HOME: tmp, PATH: '', Path: '' };
+  const pageUrl = (text) => text.match(/http:\/\/127\.0\.0\.1:\d+\/\w+/)?.[0];
+  const run = () => spawnSync(process.execPath, [script, 'setup', '--wait=0'], { env, encoding: 'utf8' });
+  let page;
   try {
-    const script = path.join(import.meta.dirname, '..', 'skills', 'klas', 'scripts', 'klas.mjs');
-    const r = spawnSync(process.execPath, [script, 'setup'], { input: '2026000000\nsecret\n', env: { ...process.env, KLAS_HOME: tmp }, encoding: 'utf8' });
-    assert.equal(JSON.parse(r.stdout).error, 'NEED_TERMINAL');
-    assert.equal(fs.existsSync(path.join(tmp, '.env')), false);
-  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+    const first = run();
+    assert.equal(JSON.parse(first.stdout).error, 'LOGIN_WAIT_TIMEOUT');
+    const url = pageUrl(first.stderr);
+    assert.ok(url);
+    page = JSON.parse(fs.readFileSync(path.join(tmp, 'login-page.json'), 'utf8'));
+    assert.equal(pageUrl(run().stderr), url);
+    assert.equal((await fetch(url)).status, 200);
+
+    const waiting = spawn(process.execPath, [script, 'setup', '--wait=30'], { env, stdio: ['ignore', 'ignore', 'pipe'] });
+    const exited = new Promise((r) => { waiting.on('exit', r); });
+    await new Promise((r) => { waiting.stderr.once('data', r); }); // 안내가 나왔으면 기다리기 시작한 것이다
+    fs.writeFileSync(path.join(tmp, 'session.json'), JSON.stringify({ cookies: { SESSION: 'new' } })); // 페이지 서버가 로그인 성공 때 쓰는 파일
+    assert.equal(await exited, 0);
+  } finally {
+    if (page) process.kill(page.pid);
+    fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
 });
