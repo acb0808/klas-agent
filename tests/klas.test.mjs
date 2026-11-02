@@ -216,7 +216,7 @@ test('참조 파일: 위치만 적고 기준 값은 넣지 않는다', () => {
   const read = (name) => fs.readFileSync(path.join(refs, name), 'utf8');
   const entries = fs.readdirSync(refs, { withFileTypes: true });
   assert.deepEqual(entries.filter((e) => e.isDirectory()).map((e) => e.name), [], '학교 자료 표를 폴더째 넣지 않는다');
-  assert.deepEqual(entries.map((e) => e.name).sort(), ['departments.md', 'graduation.md', 'sources.md']);
+  assert.deepEqual(entries.map((e) => e.name).sort(), ['departments.md', 'graduation.md', 'sources.md', 'video-summary.md']);
   for (const e of entries) {
     assert.doesNotMatch(read(e.name), /\d+\s*학점/, `${e.name}에 학점 값이 있다`);
   }
